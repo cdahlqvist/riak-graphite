@@ -1,0 +1,13 @@
+{application, riak_graphite,
+ [
+  {description, "Graphite Stats Server for Riak"},
+  {vsn, "0.1.0"},
+  {registered, [riak_graphite_server]},
+  {applications, [
+                  kernel,
+                  stdlib,
+                  riak_kv
+                 ]},
+  {mod, { riak_graphite_app, []}},
+  {env, []}
+ ]}.
