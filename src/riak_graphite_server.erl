@@ -77,7 +77,7 @@ init([]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_call({load_filter, FilterID}, _From, #state{bucket = Bucket} = State) ->
+handle_call(_Msg, _From, State) ->
     {noreply, State}.
 
 %% --------------------------------------------------------------------
@@ -87,7 +87,7 @@ handle_call({load_filter, FilterID}, _From, #state{bucket = Bucket} = State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_cast({remove_cached_filter, FilterID}, State) ->
+handle_cast(_Msg, State) ->
     {noreply, State}.
 
 %% --------------------------------------------------------------------
@@ -97,15 +97,15 @@ handle_cast({remove_cached_filter, FilterID}, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_info(gather_stats, #state{interval = Interval, host = Host, port = Port, socket = Socket} = State) ->
+handle_info(gather_stats, #state{interval = Interval} = State) ->
     case application:get_env(riak_graphite, enabled) of
         {ok, true} ->
             StatList = [{S, V} || {S, V} <- riak_kv_stat:get_stats(), is_integer(V)],
             send_stats_to_graphite(State, StatList),
-            erlang:send_after(1000 * Interval, self(), check_expiry),
+            erlang:send_after(1000 * Interval, self(), check_expiry);
         _ ->
-            erlang:send_after(1000 * Interval, self(), check_expiry),
-    end.
+            erlang:send_after(1000 * Interval, self(), check_expiry)
+    end,
     {noreply, State};
 handle_info(_Info, State) ->
     {noreply, State}.
