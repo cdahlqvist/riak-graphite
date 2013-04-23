@@ -62,7 +62,8 @@ init([]) ->
             10
     end,
     {ok, Key} = application:get_env(riak_graphite, key),
-    {ok, Socket} = gen_udp:open(LocalPort, [{active, true}]),
+    {ok, Socket} = gen_udp:open(LocalPort, [binary]),
+    inet:setopts(Socket, [{active, true}]),
     erlang:send_after(1000 * Interval, self(), gather_stats),
     Node = string:join(string:tokens(atom_to_list(node()), "@\."), "-"),
     {ok, #state{socket = Socket, host = Host, port = Port, interval = Interval, key = Key, node = Node}}.
