@@ -34,7 +34,7 @@
          terminate/2,
          code_change/3]).
 
--record(state, {socket, host, port, interval, key, node}).
+-record(state, {socket, host, port, interval, key, node, filter}).
 
 -define(SERVER, ?MODULE).
 
@@ -61,12 +61,20 @@ init([]) ->
         _ ->
             10
     end,
+    Filter = case application:get_env(riak_graphite, interval) of
+        undefined ->
+            [];
+        FL when is_list(FL) ->
+            FL;
+        _ ->
+            []
+    end,
     {ok, Key} = application:get_env(riak_graphite, key),
     {ok, Socket} = gen_udp:open(LocalPort, [binary]),
     inet:setopts(Socket, [{active, true}]),
     erlang:send_after(1000 * Interval, self(), gather_stats),
     Node = string:join(string:tokens(atom_to_list(node()), "@\."), "-"),
-    {ok, #state{socket = Socket, host = Host, port = Port, interval = Interval, key = Key, node = Node}}.
+    {ok, #state{socket = Socket, host = Host, port = Port, interval = Interval, key = Key, node = Node, filter = Filter}}.
 
 %% --------------------------------------------------------------------
 %% Function: handle_call/3
@@ -103,9 +111,9 @@ handle_info(gather_stats, #state{interval = Interval} = State) ->
         {ok, true} ->
             StatList = [{S, V} || {S, V} <- riak_kv_stat:get_stats(), is_integer(V)],
             send_stats_to_graphite(State, StatList),
-            erlang:send_after(1000 * Interval, self(), check_expiry);
+            erlang:send_after(1000 * Interval, self(), gather_stats);
         _ ->
-            erlang:send_after(1000 * Interval, self(), check_expiry)
+            erlang:send_after(1000 * Interval, self(), gather_stats)
     end,
     {noreply, State};
 handle_info(_Info, State) ->
@@ -130,7 +138,12 @@ code_change(_OldVsn, State, _Extra) ->
 %% hidden
 send_stats_to_graphite(_, []) ->
     ok;
-send_stats_to_graphite(#state{host = Host, port = Port, socket = Socket, key = Key} = State, [{S, V} | Rest]) ->
-    Message = list_to_binary(io_lib:fwrite("~s.~s.~s ~p", [Key, Host, S, V])),
-    gen_udp:send(Socket, Host, Port, Message),
-    send_stats_to_graphite(State, Rest). 
+send_stats_to_graphite(#state{host = Host, port = Port, socket = Socket, key = Key, filter = Filter} = State, [{S, V} | Rest]) ->
+    case lists:member(S, Filter) of
+        false ->
+            Message = list_to_binary(io_lib:fwrite("~s.~s.~s ~p", [Key, Host, atom_to_list(S), V])),
+            gen_udp:send(Socket, Host, Port, Message),
+            send_stats_to_graphite(State, Rest);
+        true ->
+            send_stats_to_graphite(State, Rest)
+    end.
