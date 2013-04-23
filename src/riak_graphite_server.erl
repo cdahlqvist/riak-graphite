@@ -138,10 +138,10 @@ code_change(_OldVsn, State, _Extra) ->
 %% hidden
 send_stats_to_graphite(_, []) ->
     ok;
-send_stats_to_graphite(#state{host = Host, port = Port, socket = Socket, key = Key, filter = Filter} = State, [{S, V} | Rest]) ->
+send_stats_to_graphite(#state{host = Host, port = Port, socket = Socket, key = Key, filter = Filter, node = Node} = State, [{S, V} | Rest]) ->
     case lists:member(S, Filter) of
         false ->
-            Message = list_to_binary(io_lib:fwrite("~s.~s.~s ~p", [Key, Host, atom_to_list(S), V])),
+            Message = list_to_binary(io_lib:fwrite("~s.~s.~s ~p", [Key, Node, atom_to_list(S), V])),
             gen_udp:send(Socket, Host, Port, Message),
             send_stats_to_graphite(State, Rest);
         true ->
